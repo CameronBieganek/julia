@@ -697,14 +697,14 @@ function remove_tapir!(ir::IRCode, task::ChildTask)
 end
 
 """
-    parallel_getfield_elim_checker(ir) -> phiblocks -> is_promotable::Bool
+    parallel_sroa_checker(ir) -> phiblocks -> is_promotable::Bool
 
 Return a function that checks if inserting phi nodes for a given list of BB is compatible
 with Tapir.
 
 See also `check_tapir_race!`
 """
-function parallel_getfield_elim_checker(ir::IRCode)
+function parallel_sroa_checker(ir::IRCode)
 
     # Lazily analyze child tasks:
     cache = RefValue{Union{Nothing,Vector{ChildTask}}}(nothing)
@@ -1144,7 +1144,7 @@ edges) is a result from an attempt to update variables in a parent task (that
 are read in the continuation).
 
 In principle, this detection can be done inside `slot2reg`, just like how we use
-`parallel_getfield_elim_checker` (which is similar to Tapir/LLVM's
+`parallel_sroa_checker` (which is similar to Tapir/LLVM's
 `TaskInfo::isAllocaParallelPromotable`) for disabling invalid promotion in the
 SROA pass (`getfield_elim_pass!`). However, since slot is not a valid
 representation in `IRCode`, we cannot refuse to promote a given slot.  Thus, the
@@ -2085,8 +2085,7 @@ function _lower_tapir(interp::AbstractInterpreter, linfo::MethodInstance, ci::Co
     opt = OptimizationState(linfo, copy(ci), params, interp)
 
     # Ref: run_passes
-    preserve_coverage = coverage_enabled(opt.mod)
-    ir = convert_to_ircode(ci, copy_exprargs(ci.code), preserve_coverage, opt)
+    ir = convert_to_ircode(ci, opt)
     ir = slot2reg(ir, ci, opt)
     if JLOptions().debug_level == 2
         @timeit "verify pre-tapir" (verify_ir(ir); verify_linetable(ir.linetable))
